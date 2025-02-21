@@ -1226,7 +1226,7 @@ function Sidebar:apply(current_cursor)
           if last_orig_diff_end_line > #original_code_lines then
             pcall(function() api.nvim_win_set_cursor(winid, { #original_code_lines, 0 }) end)
           else
-            api.nvim_win_set_cursor(winid, { last_orig_diff_end_line, 0 })
+            pcall(function() api.nvim_win_set_cursor(winid, { last_orig_diff_end_line, 0 }) end)
           end
           vim.cmd("normal! zz")
         end,
