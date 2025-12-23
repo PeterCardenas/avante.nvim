@@ -18,7 +18,7 @@ local M = {
   suggestions = {},
   ---@type {sidebar?: avante.Sidebar, selection?: avante.Selection, suggestion?: avante.Suggestion}
   current = { sidebar = nil, selection = nil, suggestion = nil },
-  ---@type table<string, any> Global ACP client registry for cleanup on exit
+  ---@type table<string, avante.acp.ACPClient> Global ACP client registry for cleanup on exit
   acp_clients = {},
 }
 
@@ -27,7 +27,7 @@ M.did_setup = false
 -- ACP Client Management Functions
 ---Register an ACP client for cleanup on exit
 ---@param client_id string Unique identifier for the client
----@param client any ACP client instance
+---@param client avante.acp.ACPClient ACP client instance
 function M.register_acp_client(client_id, client)
   M.acp_clients[client_id] = client
   Utils.debug("Registered ACP client: " .. client_id)

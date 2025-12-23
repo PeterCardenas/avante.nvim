@@ -456,10 +456,7 @@ function ACPClient:_create_stdio_transport()
 
       if not process then return end
 
-      -- Try to terminate gracefully
       pcall(function() process:kill(15) end)
-      -- then force kill, it'll fail harmlessly if already exited
-      pcall(function() process:kill(9) end)
       process:close()
     end
     if transport_self.stdin then

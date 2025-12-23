@@ -1309,7 +1309,7 @@ function M._stream_acp(opts)
       -- Register ACP client for global cleanup on exit (Fix Issue #2749)
       local client_id = "acp_" .. tostring(acp_client) .. "_" .. os.time()
       local ok, Avante = pcall(require, "avante")
-      if ok and Avante.register_acp_client then Avante.register_acp_client(client_id, acp_client) end
+      if ok then Avante.register_acp_client(client_id, acp_client) end
 
       -- If we create a new client and it does not support sesion loading,
       -- remove the old session
