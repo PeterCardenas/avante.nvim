@@ -451,18 +451,29 @@ function M.debug(...)
   local caller_module = caller_source:gsub("^.*/lua/", ""):gsub("%.lua$", ""):gsub("/", ".")
 
   local timestamp = M.get_timestamp()
-  local formated_args = {
+  local formatted_args = {
     "[" .. timestamp .. "] [AVANTE] [DEBUG] [" .. caller_module .. ":" .. info.currentline .. "]",
   }
 
   for _, arg in ipairs(args) do
     if type(arg) == "string" then
-      table.insert(formated_args, arg)
+      table.insert(formatted_args, arg)
     else
-      table.insert(formated_args, vim.inspect(arg))
+      table.insert(formatted_args, vim.inspect(arg))
     end
   end
-  print(unpack(formated_args))
+
+  -- Write to log file in nvim state directory
+  local log_message = table.concat(formatted_args, " ") .. "\n"
+  local state_dir = vim.fn.stdpath("state")
+  local log_file = state_dir .. "/avante-debug.log"
+
+  local file = io.open(log_file, "a")
+  if file then
+    file:write(log_message)
+    file:close()
+  end
+  print(unpack(formatted_args))
 end
 
 function M.tbl_indexof(tbl, value)
