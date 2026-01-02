@@ -22,6 +22,7 @@ local Line = require("avante.ui.line")
 local LRUCache = require("avante.utils.lru_cache")
 local logo = require("avante.utils.logo")
 local ButtonGroupLine = require("avante.ui.button_group_line")
+local BufferedDisplay = require("avante.utils.buffered_display")
 
 local RESULT_BUF_NAME = "AVANTE_RESULT"
 local VIEW_BUFFER_UPDATED_PATTERN = "AvanteViewBufferUpdated"
@@ -86,10 +87,11 @@ Sidebar.__index = Sidebar
 ---@field current_tool_use_extmark_id integer | nil
 ---@field private win_size_store table<integer, {width: integer, height: integer}>
 ---@field is_in_full_view boolean
+---@field title_buffer avante.BufferedDisplay
 
 ---@param id integer the tabpage id retrieved from api.nvim_get_current_tabpage()
 function Sidebar:new(id)
-  return setmetatable({
+  local instance = setmetatable({
     id = id,
     code = { bufnr = 0, winid = 0, selection = nil, old_winhl = nil },
     winids = {
@@ -123,6 +125,11 @@ function Sidebar:new(id)
     win_width_store = {},
     is_in_full_view = false,
   }, Sidebar)
+
+  -- Initialize BufferedDisplay with a callback that renders the result
+  instance.title_buffer = BufferedDisplay:new(function() instance:render_result() end)
+
+  return instance
 end
 
 function Sidebar:delete_autocmds()
@@ -162,6 +169,9 @@ function Sidebar:reset()
   self.current_tool_use_extmark_id = nil
   self.win_size_store = {}
   self.is_in_full_view = false
+
+  -- Clean up title buffering
+  self.title_buffer:clear()
 end
 
 ---@class SidebarOpenOptions: AskOptions
@@ -1023,8 +1033,10 @@ end
 
 function Sidebar:render_result()
   if not Utils.is_valid_container(self.containers.result) then return end
-  local title = self.chat_history and self.chat_history.title or "Avante"
-  if title == "untitled" then title = "Avante" end
+  -- Use the displayed title (buffered) if available, otherwise use the chat history title
+  local buffered_title = self.title_buffer:get()
+  local title = buffered_title or (self.chat_history and self.chat_history.title) or "New Chat"
+  if title == "untitled" then title = "New Chat" end
   local header_text = Utils.icon("󰭻 ") .. title
   self:render_header(
     self.containers.result.winid,
@@ -2246,7 +2258,13 @@ function Sidebar:new_chat(args, cb)
   self.expanded_message_uuids = {}
   self.tool_message_positions = {}
   self.current_tool_use_extmark_id = nil
+
+  -- Clean up title buffering for new chat
+  self.title_buffer:clear()
+
   self:update_content("New chat", { focus = false, scroll = false, callback = function() self:focus_input() end })
+  -- Update the winbar to reflect the new chat title
+  self:render_result()
   --- goto first line then go to last line
   vim.schedule(function()
     vim.api.nvim_win_call(self.containers.result.winid, function() vim.cmd("normal! ggG") end)
@@ -2837,7 +2855,7 @@ function Sidebar:handle_submit(request)
         if title then Path.history.save(self.code.bufnr, self.chat_history) end
       end, function(title_so_far)
         self.chat_history.title = title_so_far
-        self:render_result()
+        self.title_buffer:enqueue(title_so_far)
       end)
     end
 
