@@ -1,4 +1,4 @@
----@alias avante.ui.LineSection table
+---@alias avante.ui.LineSection [string, string | fun(): string]
 ---
 ---@class avante.ui.Line
 ---@field sections avante.ui.LineSection[]

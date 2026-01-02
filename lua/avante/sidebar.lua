@@ -2829,6 +2829,16 @@ function Sidebar:handle_submit(request)
       if Config.behaviour.auto_apply_diff_after_generation then self:apply(false) end
     end, 0)
 
+    if stop_opts.reason == "complete" and stop_opts.error == nil then
+      local history_messages = History.get_history_messages(self.chat_history)
+      Llm.generate_title(history_messages, function(title)
+        if title then
+          self.chat_history.title = title
+          Path.history.save(self.code.bufnr, self.chat_history)
+        end
+      end)
+    end
+
     Path.history.save(self.code.bufnr, self.chat_history)
   end
 

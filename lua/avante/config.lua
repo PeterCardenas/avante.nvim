@@ -40,6 +40,7 @@ M._defaults = {
   auto_suggestions_provider = nil,
   memory_summary_provider = nil,
   edit_provider = nil,
+  title_provider = nil, -- Provider to use for generating chat titles, defaults to the main provider if nil
   ---@alias Tokenizer "tiktoken" | "hf"
   ---@type Tokenizer
   -- Used for counting tokens and encoding text.

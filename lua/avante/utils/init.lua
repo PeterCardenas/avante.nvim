@@ -567,6 +567,8 @@ function M.is_sidebar_buffer(bufnr)
   return v == true
 end
 
+---@param s string
+---@return string
 function M.trim_spaces(s) return s:match("^%s*(.-)%s*$") end
 
 ---Remove trailing spaces from each line in a string

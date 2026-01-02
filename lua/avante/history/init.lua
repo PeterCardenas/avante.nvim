@@ -11,6 +11,7 @@ M.Message = Message
 ---@return avante.HistoryMessage[]
 function M.get_history_messages(history)
   if history.messages then return history.messages end
+  ---@type avante.HistoryMessage[]
   local messages = {}
   for _, entry in ipairs(history.entries or {}) do
     if entry.request and entry.request ~= "" then

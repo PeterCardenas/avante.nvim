@@ -100,6 +100,83 @@ function M.summarize_memory(prev_memory, history_messages, cb)
   })
 end
 
+---@param history_messages avante.HistoryMessage[]
+---@param on_done fun(title: string | nil, err: { msg: string, retry_after: integer | nil } | nil): nil
+function M.generate_title(history_messages, on_done)
+  if #history_messages == 0 then
+    on_done(nil, { msg = "No history messages" })
+    return
+  end
+
+  -- Create a concise summary of the conversation for title generation
+  local conversation_summary = ""
+  for _, msg in ipairs(history_messages) do
+    local msg_txt = HistoryRender.message_to_text(msg, history_messages)
+    conversation_summary = conversation_summary
+      .. "<"
+      .. string.upper(msg.message.role)
+      .. ">"
+      .. msg_txt
+      .. "</"
+      .. string.upper(msg.message.role)
+      .. ">"
+  end
+
+  if conversation_summary == "" then
+    on_done(nil, { msg = "No conversation text extracted" })
+    return
+  end
+
+  local system_prompt =
+    "Generate a concise, descriptive title for this conversation. IMPORTANT: Keep it under 50 characters (about 5-7 words). Return ONLY the title text itself - no quotes, no formatting, no preambles. If it's too long, make it shorter. If you cannot generate a title, output: :ERROR: <reason> :ERROR:"
+  ---@type AvanteLLMMessage[]
+  local messages = {
+    {
+      role = "user",
+      content = "Generate a title for this conversation:\n\n<CONVERSATION>"
+        .. conversation_summary
+        .. "</CONVERSATION>",
+    },
+  }
+
+  local generated_title = ""
+  local provider = Providers.get_title_provider()
+  M.curl({
+    provider = provider,
+    prompt_opts = {
+      system_prompt = system_prompt,
+      messages = messages,
+    },
+    handler_opts = {
+      on_start = function(_) end,
+      on_chunk = function(chunk)
+        if chunk then generated_title = generated_title .. chunk end
+      end,
+      on_stop = function(stop_opts)
+        if stop_opts.error ~= nil then
+          on_done(nil, { msg = vim.inspect(stop_opts.error) })
+          return
+        end
+        if stop_opts.reason == "complete" then
+          local error_msg = generated_title:match(":ERROR: (.*) :ERROR:")
+          if error_msg then
+            on_done(nil, { msg = error_msg })
+            return
+          end
+          -- Trim leading and trailing whitespace
+          generated_title = Utils.trim_spaces(generated_title)
+          on_done(generated_title, nil)
+        else
+          on_done(nil, {
+            msg = string.format("Stopped unexpectedly (reason: %s)", stop_opts.reason),
+            retry_after = stop_opts.retry_after,
+          })
+        end
+      end,
+    },
+  })
+end
+
 ---@param user_input string
 ---@param cb fun(error: string | nil): nil
 function M.generate_todos(user_input, cb)

@@ -285,4 +285,11 @@ function M.get_memory_summary_provider()
   return M[provider_name]
 end
 
+---@return AvanteProviderFunctor
+function M.get_title_provider()
+  local provider_name = Config.title_provider
+  if provider_name == nil then provider_name = Config.provider end
+  return M[provider_name]
+end
+
 return M
