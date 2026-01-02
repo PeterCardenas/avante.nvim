@@ -3232,6 +3232,62 @@ function Sidebar:render(opts)
   self.containers.result:map("n", Config.mappings.sidebar.close, function() self:shutdown() end)
   self.containers.result:map("n", Config.mappings.sidebar.toggle_code_window, function() self:toggle_code_window() end)
 
+  -- Override gf to go to file from chat buffer
+  self.containers.result:map("n", "gf", function()
+    ---@type (fun(): { filepath: string, line_num?: integer }?)[]
+    local finders = {
+      -- Try to find location from tool call message
+      function()
+        local message_uuid = self:get_current_tool_use_message_uuid()
+        if not message_uuid then return nil end
+
+        local history_messages = History.get_history_messages(self.chat_history)
+        for _, msg in ipairs(history_messages) do
+          if msg.uuid == message_uuid then
+            if msg.acp_tool_call and msg.acp_tool_call.locations and #msg.acp_tool_call.locations > 0 then
+              local location = msg.acp_tool_call.locations[1]
+              return { filepath = location.path, line_num = location.line }
+            end
+            break
+          end
+        end
+        return nil
+      end,
+
+      -- Try to extract filepath:linenum pattern from current line
+      function()
+        local line = api.nvim_get_current_line()
+        local filepath, line_num = line:match("([a-zA-Z0-9_/%-%.]+):(%d+)")
+        if filepath then return { filepath = filepath, line_num = tonumber(line_num) } end
+        return nil
+      end,
+
+      -- Try to extract just filepath from current line
+      function()
+        local line = api.nvim_get_current_line()
+        local filepath = line:match("([a-zA-Z0-9_/%-%.]+)")
+        if filepath then return { filepath = filepath } end
+        return nil
+      end,
+    }
+
+    for _, finder in ipairs(finders) do
+      local location = finder()
+      if location and self.code.winid and api.nvim_win_is_valid(self.code.winid) then
+        local abs_path = Utils.to_absolute_path(location.filepath)
+        if vim.fn.filereadable(abs_path) == 1 then
+          api.nvim_set_current_win(self.code.winid)
+          vim.cmd("edit " .. vim.fn.fnameescape(abs_path))
+          if location.line_num then
+            vim.cmd(tostring(location.line_num))
+            vim.cmd("normal! zz")
+          end
+          return
+        end
+      end
+    end
+  end)
+
   self:create_input_container()
 
   self:create_selected_files_container()
