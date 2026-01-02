@@ -50,7 +50,7 @@ function M.show(selector)
         end,
         ["esc"] = close_action,
         ["ctrl-c"] = close_action,
-        ["ctrl-delete"] = {
+        ["ctrl-x"] = {
           fn = function(selected)
             if not selected or #selected == 0 then return close_action() end
             local selections = selected
