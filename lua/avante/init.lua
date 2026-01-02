@@ -362,7 +362,7 @@ function H.autocmds()
   })
 
   -- automatically setup Avante filetype to markdown
-  vim.treesitter.language.register("markdown", "Avante")
+  vim.treesitter.language.register("markdown", { "Avante", "AvanteInput", "AvantePromptInput" })
 
   vim.filetype.add({
     extension = {
