@@ -27,6 +27,7 @@ function M.show(selector)
       return items
     end,
     vim.tbl_deep_extend("force", {
+      exec_empty_query = true,
       prompt = selector.title,
       preview = selector.get_preview_content and function(item)
         local id = title_to_id[item[1]]
