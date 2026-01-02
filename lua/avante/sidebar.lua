@@ -2732,12 +2732,7 @@ function Sidebar:handle_submit(request)
       content = self.code.selection.content,
     }
 
-  if request ~= "" then
-    --- HACK: we need to set focus to true and scroll to false to
-    --- prevent the cursor from jumping to the bottom of the
-    --- buffer at the beginning
-    self:update_content("", { focus = true, scroll = false })
-  end
+  if request ~= "" then self:update_content("", { focus = true, scroll = true }) end
 
   ---stop scroll when user presses j/k keys
   local function on_j()
