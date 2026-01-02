@@ -1023,7 +1023,9 @@ end
 
 function Sidebar:render_result()
   if not Utils.is_valid_container(self.containers.result) then return end
-  local header_text = Utils.icon("󰭻 ") .. "Avante"
+  local title = self.chat_history and self.chat_history.title or "Avante"
+  if title == "untitled" then title = "Avante" end
+  local header_text = Utils.icon("󰭻 ") .. title
   self:render_header(
     self.containers.result.winid,
     self.containers.result.bufnr,
@@ -2832,10 +2834,10 @@ function Sidebar:handle_submit(request)
     if stop_opts.reason == "complete" and stop_opts.error == nil then
       local history_messages = History.get_history_messages(self.chat_history)
       Llm.generate_title(history_messages, function(title)
-        if title then
-          self.chat_history.title = title
-          Path.history.save(self.code.bufnr, self.chat_history)
-        end
+        if title then Path.history.save(self.code.bufnr, self.chat_history) end
+      end, function(title_so_far)
+        self.chat_history.title = title_so_far
+        self:render_result()
       end)
     end
 

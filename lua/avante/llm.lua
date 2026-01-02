@@ -102,7 +102,8 @@ end
 
 ---@param history_messages avante.HistoryMessage[]
 ---@param on_done fun(title: string | nil, err: { msg: string, retry_after: integer | nil } | nil): nil
-function M.generate_title(history_messages, on_done)
+---@param on_chunk? fun(title_so_far: string): nil
+function M.generate_title(history_messages, on_done, on_chunk)
   if #history_messages == 0 then
     on_done(nil, { msg = "No history messages" })
     return
@@ -150,7 +151,10 @@ function M.generate_title(history_messages, on_done)
     handler_opts = {
       on_start = function(_) end,
       on_chunk = function(chunk)
-        if chunk then generated_title = generated_title .. chunk end
+        if chunk then
+          generated_title = generated_title .. chunk
+          if on_chunk then on_chunk(generated_title) end
+        end
       end,
       on_stop = function(stop_opts)
         if stop_opts.error ~= nil then
