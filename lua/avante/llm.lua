@@ -1374,15 +1374,20 @@ end
 ---@param acp_client avante.acp.ACPClient
 ---@param session_id string
 function M._continue_stream_acp(opts, acp_client, session_id)
+  ---@type ACPContent[]
   local prompt = {}
   local donot_use_builtin_system_prompt = opts.history_messages ~= nil and #opts.history_messages > 0
   if donot_use_builtin_system_prompt then
     if opts.selected_filepaths then
       for _, filepath in ipairs(opts.selected_filepaths) do
-        local abs_path = Utils.to_absolute_path(filepath)
-        local file_name = vim.fn.fnamemodify(abs_path, ":t")
-        local prompt_item = acp_client:create_resource_link_content("file://" .. abs_path, file_name)
-        table.insert(prompt, prompt_item)
+        local lines, error = Utils.read_file_from_buf_or_disk(filepath)
+        if error == nil then
+          local abs_path = Utils.to_absolute_path(filepath)
+          local content = table.concat(lines or {}, "\n")
+          local prompt_item =
+            acp_client:create_resource_content(acp_client:create_text_resource("file://" .. abs_path, content))
+          prompt[#prompt + 1] = prompt_item
+        end
       end
     end
     if opts.selected_code then

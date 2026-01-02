@@ -887,7 +887,7 @@ end
 ---@param size number?
 ---@param title string?
 ---@param annotations table?
----@return table
+---@return avante.acp.ResourceLinkContent
 function ACPClient:create_resource_link_content(uri, name, description, mime_type, size, title, annotations)
   return {
     type = "resource_link",
@@ -904,7 +904,7 @@ end
 ---Helper function: Create embedded resource content block
 ---@param resource table
 ---@param annotations table?
----@return table
+---@return avante.acp.ResourceContent
 function ACPClient:create_resource_content(resource, annotations)
   return {
     type = "resource",
@@ -917,7 +917,7 @@ end
 ---@param uri string
 ---@param text string
 ---@param mime_type string?
----@return table
+---@return avante.acp.EmbeddedResource
 function ACPClient:create_text_resource(uri, text, mime_type)
   return {
     uri = uri,
