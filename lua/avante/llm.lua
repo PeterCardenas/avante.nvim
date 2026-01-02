@@ -1357,6 +1357,23 @@ function M._stream_acp(opts)
         end,
         on_write_file = function(path, content, callback)
           local abs_path = Utils.to_absolute_path(path)
+
+          -- Ensure parent directories exist
+          local dir = vim.fn.fnamemodify(abs_path, ":h")
+          local ok, err = pcall(vim.fn.mkdir, dir, "p")
+          if not ok then
+            callback("Failed to create directory: " .. dir .. " (" .. tostring(err) .. ")")
+            return
+          end
+
+          -- Read old content to find first changed line
+          local old_content = nil
+          local old_file = io.open(abs_path, "r")
+          if old_file then
+            old_content = old_file:read("*a")
+            old_file:close()
+          end
+
           local file = io.open(abs_path, "w")
           if not file then
             callback("Failed to write file: " .. abs_path)
@@ -1365,12 +1382,48 @@ function M._stream_acp(opts)
           file:write(content)
           if vim.fn.has("unix") == 1 then file:write("\n") end
           file:close()
+
+          -- Find first changed line
+          local first_changed_line = nil
+          if old_content then
+            local old_lines = vim.split(old_content, "\n")
+            local new_lines = vim.split(content, "\n")
+            for i = 1, math.max(#old_lines, #new_lines) do
+              if old_lines[i] ~= new_lines[i] then
+                first_changed_line = i
+                break
+              end
+            end
+          end
+
           local buffers = vim.tbl_filter(function(bufnr) ---@param bufnr integer
             return vim.api.nvim_buf_is_valid(bufnr)
               and vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":p") == vim.fn.fnamemodify(abs_path, ":p")
           end, vim.api.nvim_list_bufs())
+
+          local current_tabpage = vim.api.nvim_get_current_tabpage()
+
           for _, buf in ipairs(buffers) do
-            vim.api.nvim_buf_call(buf, function() vim.cmd("edit") end)
+            vim.api.nvim_buf_call(buf, function()
+              vim.cmd("edit")
+              -- Only navigate if buffer is visible in a window in the current tabpage
+              if first_changed_line then
+                local winid = vim.fn.bufwinid(buf)
+                if winid ~= -1 then
+                  -- Check if the window is in the current tabpage
+                  local win_tabpage = vim.api.nvim_win_get_tabpage(winid)
+                  if win_tabpage == current_tabpage then
+                    local success, set_cursor_err =
+                      pcall(vim.api.nvim_win_set_cursor, winid, { first_changed_line, 0 })
+                    if not success then
+                      Utils.error("Failed to set cursor position: " .. tostring(set_cursor_err))
+                    else
+                      vim.api.nvim_win_call(winid, function() vim.cmd("normal! zz") end)
+                    end
+                  end
+                end
+              end
+            end)
           end
           callback(nil)
         end,
