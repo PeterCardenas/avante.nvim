@@ -215,18 +215,49 @@ end
 
 P.history = History
 
----@return table[] List of projects with their information
+---Get all history files in a history directory (excluding metadata.json)
+---@param history_dir Path
+---@return string[] List of history file paths
+local function get_history_files(history_dir)
+  if not history_dir:exists() then return {} end
+
+  ---@type string[]
+  local files = vim.fn.glob(tostring(history_dir:joinpath("*.json")), true, true)
+  ---@type Path[]
+  local history_files = {}
+
+  for _, file in ipairs(files) do
+    if not file:match("metadata.json") then history_files[#history_files + 1] = Path:new(file) end
+  end
+
+  return history_files
+end
+
+---@class avante.Project
+---@field name string
+---@field root string
+---@field history_count integer
+---@field directory string
+---@field history_files Path[] List of history file paths
+
+---@return avante.Project[] List of projects with their information
 function P.list_projects()
+  ---@type Path
   local projects_dir = Path:new(Config.history.storage_path):joinpath("projects")
   if not projects_dir:exists() then return {} end
 
+  ---@type avante.Project[]
   local projects = {}
+  ---@type string[]
   local dirs = Scan.scan_dir(tostring(projects_dir), { depth = 1, add_dirs = true, only_dirs = true })
 
   for _, dir_path in ipairs(dirs) do
+    ---@type Path
     local project_dir = Path:new(dir_path)
+    ---@type Path
     local history_dir = project_dir:joinpath("history")
 
+    ---@type Path
     local metadata_file = history_dir:joinpath("metadata.json")
     local project_root = ""
     if metadata_file:exists() then
@@ -240,21 +271,16 @@ function P.list_projects()
     -- Skip if project_root is empty
     if project_root == "" then goto continue end
 
-    -- Count history files
-    local history_count = 0
-    if history_dir:exists() then
-      local history_files = vim.fn.glob(tostring(history_dir:joinpath("*.json")), true, true)
-      for _, file in ipairs(history_files) do
-        if not file:match("metadata.json") then history_count = history_count + 1 end
-      end
-    end
+    -- Get history files using the helper
+    local history_files = get_history_files(history_dir)
 
-    table.insert(projects, {
+    projects[#projects + 1] = {
       name = filepath_to_filename(project_dir),
       root = project_root,
-      history_count = history_count,
+      history_count = #history_files,
       directory = tostring(project_dir),
-    })
+      history_files = history_files,
+    }
 
     ::continue::
   end

@@ -297,6 +297,7 @@ end
 function M.remove_selected_file(filepath)
   ---@diagnostic disable-next-line: undefined-field
   local stat = vim.uv.fs_stat(filepath)
+  ---@type string[]
   local files
   if stat and stat.type == "directory" then
     files = Utils.scan_directory({ directory = filepath, add_dirs = true })
@@ -318,6 +319,93 @@ function M.remove_selected_file(filepath)
 end
 
 function M.stop() require("avante.llm").cancel_inflight_request() end
+
+---Generate titles for all history files that are still "untitled"
+function M.title_all_history()
+  local PPath = require("plenary.path")
+  local Path = require("avante.path")
+  local History = require("avante.history")
+  local Llm = require("avante.llm")
+
+  -- Get all projects using the proper helper
+  local projects = Path.list_projects()
+  if #projects == 0 then
+    Utils.info("No history projects found")
+    return
+  end
+
+  -- Collect all untitled history files
+  ---@type { file_path: Path, history: avante.ChatHistory }[]
+  local files_to_process = {}
+  for _, project in ipairs(projects) do
+    for _, filepath in ipairs(project.history_files) do
+      local file_path = PPath:new(filepath)
+      local history = Path.history.from_file(file_path)
+
+      if history then
+        files_to_process[#files_to_process + 1] = {
+          file_path = file_path,
+          history = history,
+        }
+      end
+    end
+  end
+
+  if #files_to_process == 0 then
+    Utils.info("No history files found")
+    return
+  end
+
+  local total_count = #files_to_process
+  local processed_count = 0
+  local updated_count = 0
+
+  Utils.info(string.format("Processing %d history files sequentially...", total_count))
+
+  -- Process files sequentially but asynchronously
+  ---@param index integer
+  local function process_next(index)
+    if index > #files_to_process then
+      Utils.info(string.format("Completed! Updated %d/%d history files", updated_count, total_count))
+      return
+    end
+
+    local item = files_to_process[index]
+    local history_messages = History.get_history_messages(item.history)
+
+    -- Generate title asynchronously
+    Llm.generate_title(history_messages, function(title, err)
+      if err and err.retry_after then
+        vim.defer_fn(function() process_next(index) end, err.retry_after * 1000)
+        return
+      end
+
+      processed_count = processed_count + 1
+
+      if title then
+        item.history.title = title
+        item.file_path:write(vim.json.encode(item.history), "w")
+        updated_count = updated_count + 1
+        Utils.info(string.format("[%d/%d] Updated: %s", processed_count, total_count, title))
+      else
+        Utils.error(
+          string.format(
+            "[%d/%d] Failed to generate title: %s",
+            processed_count,
+            total_count,
+            err and err.msg or "unknown error"
+          )
+        )
+      end
+
+      -- Process next file
+      process_next(index + 1)
+    end)
+  end
+
+  -- Start processing from the first file
+  process_next(1)
+end
 
 return setmetatable(M, {
   __index = function(t, k)
