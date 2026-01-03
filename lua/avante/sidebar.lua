@@ -752,7 +752,7 @@ function Sidebar:get_current_user_request_block(position)
   local content_lines = {}
   for i = 1, #lines do
     local line = lines[i]
-    local m = line:match("^>%s+(.+)$")
+    local m = line:match("^>%s+(.*)$")
     if m then
       if start_line == nil then start_line = i end
       table.insert(content_lines, m)
