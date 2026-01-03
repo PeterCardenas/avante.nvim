@@ -690,8 +690,6 @@ end
 ---Start client
 ---@param callback fun(err: avante.acp.ACPError|nil)
 function ACPClient:connect(callback)
-  callback = callback or function() end
-
   if self.state ~= "disconnected" then
     callback(nil)
     return
@@ -712,8 +710,6 @@ end
 ---Initialize protocol connection
 ---@param callback fun(err: avante.acp.ACPError|nil)
 function ACPClient:initialize(callback)
-  callback = callback or function() end
-
   if self.state ~= "connected" then
     local error = self:_create_error(self.ERROR_CODES.PROTOCOL_ERROR, "Cannot initialize: client not connected")
     callback(error)
@@ -763,8 +759,6 @@ end
 ---@param method_id string
 ---@param callback fun(err: avante.acp.ACPError|nil)
 function ACPClient:authenticate(method_id, callback)
-  callback = callback or function() end
-
   self:_send_request("authenticate", {
     methodId = method_id,
   }, function(result, err) callback(err) end)
@@ -775,8 +769,6 @@ end
 ---@param mcp_servers table[]?
 ---@param callback fun(session_id: string|nil, err: avante.acp.ACPError|nil)
 function ACPClient:create_session(cwd, mcp_servers, callback)
-  callback = callback or function() end
-
   self:_send_request("session/new", {
     cwd = cwd,
     mcpServers = mcp_servers or {},
@@ -801,8 +793,6 @@ end
 ---@param mcp_servers table[]?
 ---@param callback fun(result: table|nil, err: avante.acp.ACPError|nil)
 function ACPClient:load_session(session_id, cwd, mcp_servers, callback)
-  callback = callback or function() end
-
   if not self.agent_capabilities or not self.agent_capabilities.loadSession then
     vim.schedule(function() vim.notify("Agent does not support loading sessions", vim.log.levels.WARN) end)
     local err = self:_create_error(self.ERROR_CODES.PROTOCOL_ERROR, "Agent does not support loading sessions")
