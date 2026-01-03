@@ -1009,6 +1009,7 @@ function Sidebar:render_header(winid, bufnr, header_text, hl, reverse_hl)
 
   local function format_segment(text, highlight) return "%#" .. highlight .. "#" .. text end
 
+  header_text = header_text .. "%<"
   if Config.windows.sidebar_header.rounded then
     header_text = format_segment(Utils.icon("", "『"), reverse_hl)
       .. format_segment(header_text, hl)
