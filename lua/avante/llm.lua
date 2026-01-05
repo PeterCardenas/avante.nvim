@@ -2292,19 +2292,41 @@ function M.stream(opts)
       return original_set_tool_use_store(...)
     end)
   end
+  if opts.on_state_change ~= nil then
+    local original_on_state_change = opts.on_state_change
+    opts.on_state_change = function(state)
+      if state == "generating" then vim.api.nvim_ui_send("\027]9;4;3;0\027\\") end
+      if original_on_state_change then return original_on_state_change(state) end
+    end
+  end
   if opts.on_chunk ~= nil then
     local original_on_chunk = opts.on_chunk
     opts.on_chunk = vim.schedule_wrap(function(chunk)
       if is_completed then return end
+      vim.api.nvim_ui_send("\027]9;4;3;0\027\\")
       if original_on_chunk then return original_on_chunk(chunk) end
     end)
   end
+  if opts.on_messages_add ~= nil then
+    local original_on_messages_add = opts.on_messages_add
+    opts.on_messages_add = function(messages)
+      vim.api.nvim_ui_send("\027]9;4;3;0\027\\")
+      if original_on_messages_add then return original_on_messages_add(messages) end
+    end
+  end
   if opts.on_stop ~= nil then
     local original_on_stop = opts.on_stop
-    opts.on_stop = vim.schedule_wrap(function(stop_opts)
+    opts.on_stop = vim.schedule_wrap(function(stop_opts) ---@param stop_opts AvanteLLMStopCallbackOptions
       if is_completed then return end
       if stop_opts.reason == "complete" or stop_opts.reason == "error" or stop_opts.reason == "cancelled" then
         is_completed = true
+      end
+      if stop_opts.reason == "complete" then
+        vim.api.nvim_ui_send("\027]9;4;1;100\027\\")
+      elseif stop_opts.reason == "error" then
+        vim.api.nvim_ui_send("\027]9;4;2;100\027\\")
+      else
+        vim.api.nvim_ui_send("\027]9;4;0;0\027\\")
       end
       return original_on_stop(stop_opts)
     end)
