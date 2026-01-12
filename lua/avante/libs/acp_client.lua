@@ -368,14 +368,15 @@ function ACPClient:_create_stdio_transport()
         final_env[#final_env + 1] = k .. "=" .. v
       end
     end
+    local handle, pid
 
     ---@diagnostic disable-next-line: missing-fields
-    local handle, pid = uv.spawn(self.config.command, {
+    handle, pid = uv.spawn(self.config.command, {
       args = args,
       env = final_env,
       stdio = { stdin, stdout, stderr },
     }, function(code, signal)
-      Utils.debug("ACP agent exited with code " .. code .. " and signal " .. signal)
+      Utils.debug("ACP agent with pid" .. pid .. " exited with code " .. code .. " and signal " .. signal)
       self:_set_state("disconnected")
 
       if transport_self.process then
@@ -450,15 +451,6 @@ function ACPClient:_create_stdio_transport()
 
   --- @param transport_self avante.acp.ACPTransportInstance
   function transport.stop(transport_self)
-    if transport_self.process and not transport_self.process:is_closing() then
-      local process = transport_self.process
-      transport_self.process = nil
-
-      if not process then return end
-
-      pcall(function() process:kill(15) end)
-      process:close()
-    end
     if transport_self.stdin then
       transport_self.stdin:close()
       transport_self.stdin = nil
@@ -466,6 +458,36 @@ function ACPClient:_create_stdio_transport()
     if transport_self.stdout then
       transport_self.stdout:close()
       transport_self.stdout = nil
+    end
+    if transport_self.process and not transport_self.process:is_closing() then
+      local process = transport_self.process
+      transport_self.process = nil
+
+      if not process then return end
+      local pid = process:get_pid()
+      local process_ids = { pid }
+      local process_queue = { pid }
+      repeat
+        local next_pid = table.remove(process_queue, 1)
+        local result = vim.system({ "pgrep", "-P", tostring(next_pid) }):wait(5000)
+        if result.code == 0 then
+          local lines = vim.split(result.stdout or "", "\n", { plain = true })
+          for _, line in ipairs(lines) do
+            local child_pid = tonumber(line)
+            process_ids[#process_ids + 1] = child_pid
+            process_queue[#process_queue + 1] = child_pid
+          end
+        end
+      until #process_queue == 0
+
+      for i = #process_ids, 1, -1 do
+        local success = pcall(function() uv.kill(process_ids[i], 15) end)
+        if not success then
+          Utils.debug("Failed to kill process: " .. process_ids[i])
+        else
+          Utils.debug("Killed process: " .. process_ids[i])
+        end
+      end
     end
     self:_set_state("disconnected")
   end
