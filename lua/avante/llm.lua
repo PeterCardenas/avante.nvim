@@ -2339,6 +2339,7 @@ function M.stream(opts)
   opts.mode = opts.mode or Config.mode
 
   abort_retry_timer = false
+  if not opts.just_connect_acp_client then opts.on_state_change("generating") end
   if Config.dual_boost.enabled and valid_dual_boost_modes[opts.mode] then
     M._dual_boost_stream(
       opts,

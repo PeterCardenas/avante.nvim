@@ -2924,7 +2924,6 @@ function Sidebar:handle_submit(request)
 
     stream_options.on_memory_summarize = on_memory_summarize
 
-    if request ~= "" then on_state_change("generating") end
     Llm.stream(stream_options)
   end)
 end
