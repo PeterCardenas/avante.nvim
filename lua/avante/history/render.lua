@@ -398,7 +398,6 @@ function M.get_tool_display_name(message)
         param = param:gsub(project_root .. "/?", "")
       end)
     end
-    if param and param ~= native_tool_name then tool_name = native_tool_name .. "(" .. vim.inspect(param) .. ")" end
   end
 
   ---@cast tool_name string
