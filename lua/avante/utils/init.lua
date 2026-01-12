@@ -440,8 +440,6 @@ function M.warn(msg, opts)
 end
 
 function M.debug(...)
-  if not require("avante.config").debug then return end
-
   local args = { ... }
   if #args == 0 then return end
 
@@ -473,6 +471,9 @@ function M.debug(...)
     file:write(log_message)
     file:close()
   end
+
+  if not require("avante.config").debug then return end
+
   print(unpack(formatted_args))
 end
 
