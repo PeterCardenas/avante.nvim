@@ -170,6 +170,10 @@ function Sidebar:reset()
   self.win_size_store = {}
   self.is_in_full_view = false
 
+  -- Clean up cache
+  self._cached_history_lines = nil
+  self._history_cache_invalidated = true
+
   -- Clean up title buffering
   self.title_buffer:clear()
 end
@@ -724,17 +728,6 @@ local function insert_conflict_contents(bufnr, snippets)
   end
 end
 
----@param codeblocks table<integer, any>
-local function is_cursor_in_codeblock(codeblocks)
-  local cursor_line, _ = Utils.get_cursor_pos()
-
-  for _, block in ipairs(codeblocks) do
-    if cursor_line >= block.start_line and cursor_line <= block.end_line then return block end
-  end
-
-  return nil
-end
-
 ---@class AvanteRespUserRequestBlock
 ---@field start_line number 1-indexed
 ---@field end_line number 1-indexed
@@ -785,33 +778,6 @@ function Sidebar:get_current_tool_use_message_uuid()
       return message_uuid, positions
     end
   end
-end
-
----@class AvanteCodeblock
----@field start_line integer 1-indexed
----@field end_line integer 1-indexed
----@field lang string
-
----@param buf integer
----@return AvanteCodeblock[]
-local function parse_codeblocks(buf)
-  local codeblocks = {}
-  local lines = Utils.get_buf_lines(0, -1, buf)
-  local lang, start_line, valid
-  for _, node in ipairs(tree_sitter_markdown_parse_code_blocks(buf)) do
-    if node:type() == "language" then
-      lang = vim.treesitter.get_node_text(node, buf)
-    elseif node:type() == "block_continuation" then
-      start_line, _ = node:start()
-    elseif node:type() == "fenced_code_block_delimiter" and start_line ~= nil and node:start() >= start_line then
-      local end_line, _ = node:start()
-      valid = lines[start_line - 1]:match("^%s*(%d*)[%.%)%s]*[Aa]?n?d?%s*[Rr]eplace%s+[Ll]ines:?%s*(%d+)%-(%d+)")
-        ~= nil
-      if valid then table.insert(codeblocks, { start_line = start_line, end_line = end_line + 1, lang = lang }) end
-    end
-  end
-
-  return codeblocks
 end
 
 ---@param original_lines string[]
@@ -1345,37 +1311,6 @@ function Sidebar:on_mount(opts)
 
   api.nvim_set_option_value("wrap", Config.windows.wrap, { win = self.containers.result.winid })
 
-  local current_apply_extmark_id = nil
-
-  ---@param block AvanteCodeblock
-  local function show_apply_button(block)
-    if current_apply_extmark_id then
-      api.nvim_buf_del_extmark(self.containers.result.bufnr, CODEBLOCK_KEYBINDING_NAMESPACE, current_apply_extmark_id)
-    end
-
-    current_apply_extmark_id = api.nvim_buf_set_extmark(
-      self.containers.result.bufnr,
-      CODEBLOCK_KEYBINDING_NAMESPACE,
-      block.start_line - 1,
-      -1,
-      {
-        virt_text = {
-          {
-            string.format(
-              " [<%s>: apply this, <%s>: apply all] ",
-              Config.mappings.sidebar.apply_cursor,
-              Config.mappings.sidebar.apply_all
-            ),
-            "AvanteInlineHint",
-          },
-        },
-        virt_text_pos = "right_align",
-        hl_group = "AvanteInlineHint",
-        priority = PRIORITY,
-      }
-    )
-  end
-
   local current_user_request_block_extmark_id = nil
 
   local function show_user_request_block_control_buttons()
@@ -1413,24 +1348,11 @@ function Sidebar:on_mount(opts)
     )
   end
 
-  ---@type AvanteCodeblock[]
-  local codeblocks = {}
-
   api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
     group = self.augroup,
     buffer = self.containers.result.bufnr,
     callback = function(ev)
       self:render_tool_use_control_buttons()
-
-      local in_codeblock = is_cursor_in_codeblock(codeblocks)
-
-      if in_codeblock then
-        show_apply_button(in_codeblock)
-        self:bind_apply_key()
-      else
-        api.nvim_buf_clear_namespace(ev.buf, CODEBLOCK_KEYBINDING_NAMESPACE, 0, -1)
-        self:unbind_apply_key()
-      end
 
       local in_user_request_block = self:is_cursor_in_user_request_block()
       if in_user_request_block then
@@ -1449,10 +1371,7 @@ function Sidebar:on_mount(opts)
     api.nvim_create_autocmd({ "BufEnter", "BufWritePost" }, {
       group = self.augroup,
       buffer = self.containers.result.bufnr,
-      callback = function(ev)
-        codeblocks = parse_codeblocks(ev.buf)
-        self:bind_sidebar_keys(codeblocks)
-      end,
+      callback = function() self:bind_sidebar_keys({}) end,
     })
 
     api.nvim_create_autocmd("User", {
@@ -1460,8 +1379,7 @@ function Sidebar:on_mount(opts)
       pattern = VIEW_BUFFER_UPDATED_PATTERN,
       callback = function()
         if not Utils.is_valid_container(self.containers.result) then return end
-        codeblocks = parse_codeblocks(self.containers.result.bufnr)
-        self:bind_sidebar_keys(codeblocks)
+        self:bind_sidebar_keys({})
       end,
     })
   end
@@ -1769,7 +1687,14 @@ function Sidebar:update_content(content, opts)
     self._cached_history_lines = history_lines
     self._history_cache_invalidated = false
   else
-    history_lines = vim.deepcopy(self._cached_history_lines)
+    -- Only copy if we're adding content - shallow copy the array, not deep copy the Line objects
+    if content ~= nil and content ~= "" then
+      history_lines = vim.list_extend({}, self._cached_history_lines)
+    else
+      -- No content to add, use cache directly
+      history_lines = self._cached_history_lines
+    end
+    tool_message_positions = self.tool_message_positions
   end
 
   if content ~= nil and content ~= "" then
