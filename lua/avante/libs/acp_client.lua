@@ -805,7 +805,16 @@ function ACPClient:create_session(cwd, mcp_servers, callback)
       callback(nil, error)
       return
     end
-    callback(result.sessionId, nil)
+    self:_send_request("session/set_model", {
+      sessionId = result.sessionId,
+      modelId = "global.anthropic.claude-opus-4-5-20251101-v1:0",
+    }, function(_set_model_result, set_model_err)
+      if set_model_err then
+        vim.schedule(function() vim.notify("Failed to set model: " .. set_model_err.message, vim.log.levels.ERROR) end)
+      else
+        callback(result.sessionId, nil)
+      end
+    end)
   end)
 end
 
@@ -826,7 +835,18 @@ function ACPClient:load_session(session_id, cwd, mcp_servers, callback)
     sessionId = session_id,
     cwd = cwd,
     mcpServers = mcp_servers or {},
-  }, callback)
+  }, function(result, err)
+    self:_send_request("session/set_model", {
+      sessionId = result.sessionId,
+      modelId = "global.anthropic.claude-opus-4-5-20251101-v1:0",
+    }, function(_set_model_result, set_model_err)
+      if set_model_err then
+        vim.schedule(function() vim.notify("Failed to set model: " .. set_model_err.message, vim.log.levels.ERROR) end)
+      else
+        callback(result, err)
+      end
+    end)
+  end)
 end
 
 ---Send prompt
