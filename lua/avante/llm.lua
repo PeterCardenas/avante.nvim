@@ -2292,10 +2292,11 @@ function M.stream(opts)
       return original_set_tool_use_store(...)
     end)
   end
+  local ui_send = vim.api.nvim_ui_send or function(_) end
   if opts.on_state_change ~= nil then
     local original_on_state_change = opts.on_state_change
     opts.on_state_change = function(state)
-      if state == "generating" then vim.api.nvim_ui_send("\027]9;4;3;0\027\\") end
+      if state == "generating" then ui_send("\027]9;4;3;0\027\\") end
       if original_on_state_change then return original_on_state_change(state) end
     end
   end
@@ -2303,14 +2304,14 @@ function M.stream(opts)
     local original_on_chunk = opts.on_chunk
     opts.on_chunk = vim.schedule_wrap(function(chunk)
       if is_completed then return end
-      vim.api.nvim_ui_send("\027]9;4;3;0\027\\")
+      ui_send("\027]9;4;3;0\027\\")
       if original_on_chunk then return original_on_chunk(chunk) end
     end)
   end
   if opts.on_messages_add ~= nil then
     local original_on_messages_add = opts.on_messages_add
     opts.on_messages_add = function(messages)
-      vim.api.nvim_ui_send("\027]9;4;3;0\027\\")
+      ui_send("\027]9;4;3;0\027\\")
       if original_on_messages_add then return original_on_messages_add(messages) end
     end
   end
@@ -2322,11 +2323,11 @@ function M.stream(opts)
         is_completed = true
       end
       if stop_opts.reason == "complete" then
-        vim.api.nvim_ui_send("\027]9;4;1;100\027\\")
+        ui_send("\027]9;4;1;100\027\\")
       elseif stop_opts.reason == "error" then
-        vim.api.nvim_ui_send("\027]9;4;2;100\027\\")
+        ui_send("\027]9;4;2;100\027\\")
       else
-        vim.api.nvim_ui_send("\027]9;4;0;0\027\\")
+        ui_send("\027]9;4;0;0\027\\")
       end
       return original_on_stop(stop_opts)
     end)
@@ -2339,7 +2340,7 @@ function M.stream(opts)
   opts.mode = opts.mode or Config.mode
 
   abort_retry_timer = false
-  if not opts.just_connect_acp_client then opts.on_state_change("generating") end
+  if not opts.just_connect_acp_client and opts.on_state_change then opts.on_state_change("generating") end
   if Config.dual_boost.enabled and valid_dual_boost_modes[opts.mode] then
     M._dual_boost_stream(
       opts,
