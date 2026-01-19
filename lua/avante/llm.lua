@@ -2292,7 +2292,7 @@ function M.stream(opts)
       return original_set_tool_use_store(...)
     end)
   end
-  local ui_send = vim.api.nvim_ui_send or function(_) end
+  local ui_send = vim.api.nvim_ui_send or function(msg) vim.api.nvim_chan_send(2, msg) end
   if opts.on_state_change ~= nil then
     local original_on_state_change = opts.on_state_change
     opts.on_state_change = function(state)
