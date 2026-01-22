@@ -216,6 +216,7 @@ ACPClient.ERROR_CODES = {
 ---@class ACPConfig
 ---@field transport_type "stdio" | "websocket" | "tcp"
 ---@field command? string Command to spawn agent (for stdio)
+---@field model? string Model to use
 ---@field args? string[] Arguments for agent command
 ---@field env? table Environment variables
 ---@field host? string Host for tcp/websocket
@@ -805,9 +806,10 @@ function ACPClient:create_session(cwd, mcp_servers, callback)
       callback(nil, error)
       return
     end
+    if not self.config.model then return callback(result.sessionId, nil) end
     self:_send_request("session/set_model", {
       sessionId = result.sessionId,
-      modelId = "global.anthropic.claude-opus-4-5-20251101-v1:0",
+      modelId = self.config.model,
     }, function(_set_model_result, set_model_err)
       if set_model_err then
         vim.schedule(function() vim.notify("Failed to set model: " .. set_model_err.message, vim.log.levels.ERROR) end)
@@ -836,9 +838,10 @@ function ACPClient:load_session(session_id, cwd, mcp_servers, callback)
     cwd = cwd,
     mcpServers = mcp_servers or {},
   }, function(result, err)
+    if not self.config.model then return callback(result, err) end
     self:_send_request("session/set_model", {
       sessionId = result.sessionId,
-      modelId = "global.anthropic.claude-opus-4-5-20251101-v1:0",
+      modelId = self.config.model,
     }, function(_set_model_result, set_model_err)
       if set_model_err then
         vim.schedule(function() vim.notify("Failed to set model: " .. set_model_err.message, vim.log.levels.ERROR) end)
