@@ -231,6 +231,11 @@ function M.refresh(provider_name)
 
   if Config.acp_providers[provider_name] then
     Config.provider = provider_name
+    local sidebar = require("avante").get()
+    if sidebar then
+      sidebar.acp_client = nil
+      sidebar:handle_submit("")
+    end
   else
     ---@type AvanteProviderFunctor | AvanteBedrockProviderFunctor
     local p = M[Config.provider]
