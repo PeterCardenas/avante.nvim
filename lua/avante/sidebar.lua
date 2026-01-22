@@ -2892,7 +2892,11 @@ function Sidebar:create_input_container()
       swapfile = false,
       buftype = "nofile",
     },
-    win_options = vim.tbl_deep_extend("force", base_win_options, { signcolumn = "yes", wrap = Config.windows.wrap }),
+    win_options = vim.tbl_deep_extend(
+      "force",
+      base_win_options,
+      { signcolumn = "yes", wrap = Config.windows.wrap, scrolloff = 1 }
+    ),
     position = get_position(),
     size = get_size(),
   })
